@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StudyFlow — Study Planner</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>StudyFlow</h1>
+            <p>Your assignments, organized.</p>
+        </header>
+
+        <!-- Dashboard statistics -->
+        <section class="stats-grid" aria-label="Assignment statistics">
+            <article class="stat-card">
+                <p>Total assignments</p>
+                <h2>{{ stats["total"] }}</h2>
+            </article>
+
+            <article class="stat-card">
+                <p>Pending</p>
+                <h2>{{ stats["pending"] }}</h2>
+            </article>
+
+            <article class="stat-card">
+                <p>Completed</p>
+                <h2>{{ stats["completed"] }}</h2>
+            </article>
+
+            <article class="stat-card">
+                <p>Overdue</p>
+                <h2>{{ stats["overdue"] }}</h2>
+            </article>
+        </section>
+
+        <!-- Overall completion progress -->
+        <section class="progress-section"
+                 aria-labelledby="progress-heading">
+            <div class="progress-header">
+                <h2 id="progress-heading">Study progress</h2>
+                <span class="progress-percentage">{{ progress }}%</span>
+            </div>
+
+            <div class="progress-track"
+                 role="progressbar"
+                 aria-label="Assignments completed"
+                 aria-valuenow="{{ progress }}"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+                <div class="progress-fill"
+                     style="width: {{ progress }}%;"></div>
+            </div>
+
+            <p class="progress-caption">
+                {{ stats["completed"] }} of {{ stats["total"] }}
+                assignments completed
+            </p>
+        </section>
+
+        <!-- Subject summary -->
+        <section class="subjects-section"
+                 aria-labelledby="subjects-heading">
+            <div class="subjects-header">
+                <h2 id="subjects-heading">Subject Summary</h2>
+                <p>Track your progress in each subject.</p>
+            </div>
+
+            {% if subjects %}
+                <div class="subjects-grid">
+                    {% for subject in subjects %}
+                        {% set subject_progress = (
+                            subject["completed"] / subject["total"] * 100
+                        ) | round | int %}
+
+                        <article class="subject-card">
+                            <div class="subject-title-row">
+                                <h3>{{ subject["subject"] }}</h3>
+                                <span>{{ subject_progress }}%</span>
+                            </div>
+
+                            <p class="subject-count">
+                                {{ subject["completed"] }} of
+                                {{ subject["total"] }} assignments completed
+                            </p>
+
+                            <div class="subject-progress-track"
+                                 role="progressbar"
+                                 aria-label="Progress for {{ subject['subject'] }}"
+                                 aria-valuenow="{{ subject_progress }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                <div class="subject-progress-fill"
+                                     style="width: {{ subject_progress }}%;"></div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-subjects">
+                    No subjects yet. Add an assignment with a subject
+                    to see your summary here.
+                </p>
+            {% endif %}
+        </section>
+
+        <!-- Add an assignment -->
+        <section class="panel">
+            <h2>Add an assignment</h2>
+
+            <form action="{{ url_for('add_task') }}" method="post">
+                <label for="title">Assignment title</label>
+                <input id="title" name="title"
+                       required maxlength="150">
+
+                <label for="subject">Subject</label>
+                <input id="subject" name="subject"
+                       required maxlength="100">
+
+                <label for="due_date">Due date</label>
+                <input id="due_date" name="due_date"
+                       type="date" required min="{{ today }}">
+
+                <label for="priority">Priority</label>
+                <select id="priority" name="priority" required>
+                    <option value="Low">Low</option>
+                    <option value="Medium" selected>Medium</option>
+                    <option value="High">High</option>
+                </select>
+
+                <button type="submit">Add assignment</button>
+            </form>
+        </section>
+
+        <!-- Assignment list and filters -->
+        <section class="panel">
+            <h2>My assignments</h2>
+
+            <form action="{{ url_for('index') }}"
+                  method="get" class="filters">
+                <label for="search">Search assignments</label>
+                <input id="search"
+                       type="search"
+                       name="search"
+                       placeholder="Search title or subject"
+                       value="{{ search }}">
+
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="all"
+                        {% if status == 'all' %}selected{% endif %}>
+                        All assignments
+                    </option>
+                    <option value="pending"
+                        {% if status == 'pending' %}selected{% endif %}>
+                        Pending
+                    </option>
+                    <option value="completed"
+                        {% if status == 'completed' %}selected{% endif %}>
+                        Completed
+                    </option>
+                </select>
+
+                <label for="priority-filter">Priority</label>
+                <select id="priority-filter" name="priority">
+                    <option value="all"
+                        {% if priority == 'all' %}selected{% endif %}>
+                        All priorities
+                    </option>
+                    <option value="High"
+                        {% if priority == 'High' %}selected{% endif %}>
+                        High
+                    </option>
+                    <option value="Medium"
+                        {% if priority == 'Medium' %}selected{% endif %}>
+                        Medium
+                    </option>
+                    <option value="Low"
+                        {% if priority == 'Low' %}selected{% endif %}>
+                        Low
+                    </option>
+                </select>
+
+                <button type="submit">Apply filters</button>
+                <a href="{{ url_for('index') }}">Clear filters</a>
+            </form>
+
+            {% if tasks %}
+                {% for task in tasks %}
+                    <article class="task">
+                        <div>
+                            <h3 class="{% if task['completed'] %}completed-title{% endif %}">
+                                {{ task["title"] }}
+                            </h3>
+
+                            <!-- Due-date alerts -->
+                            {% if not task["completed"] and task["due_date"] %}
+                                {% if task["due_date"] < today %}
+                                    <span class="due-badge overdue-badge">
+                                        Overdue
+                                    </span>
+                                {% elif task["due_date"] <= due_soon_date %}
+                                    <span class="due-badge soon-badge">
+                                        Due soon
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+
+                            <p>
+                                {{ task["subject"] }} ·
+                                Due {{ task["due_date"] }}
+                            </p>
+
+                            <p>Priority: {{ task["priority"] }}</p>
+
+                            {% if task["completed"] %}
+                                <span>Completed</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="actions">
+                            <form
+                                action="{{ url_for('complete_task', task_id=task['id']) }}"
+                                method="post">
+                                <button type="submit">
+                                    {% if task["completed"] %}
+                                        Reopen
+                                    {% else %}
+                                        Complete
+                                    {% endif %}
+                                </button>
+                            </form>
+
+                            <form
+                                action="{{ url_for('delete_task', task_id=task['id']) }}"
+                                method="post">
+                                <button type="submit" class="delete">
+                                    Delete
+                                </button>
+                            </form>
+
+                            <form
+                                action="{{ url_for('edit_task', task_id=task['id']) }}"
+                                method="get">
+                                <button type="submit">Edit</button>
+                            </form>
+                        </div>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <p>No matching assignments found. Try changing your filters or add a new assignment.</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>
